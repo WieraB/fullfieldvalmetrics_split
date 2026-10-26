@@ -15,4 +15,4 @@ surrogate_test_case_1/.pytest_cache/
 # The metric tables and the figures of the runs are tracked.
 scripts/mavm_nuisance_split/nen9_net250_na400/block_*.csv
 scripts/mavm_nuisance_split/nen17_net250_na400/block_*.csv
-scripts/mavm_nuisance_split/nen17_net250_na400/ablation/
+scripts/mavm_nuisance_split/nen17_net250_na400/ablation/outputs
