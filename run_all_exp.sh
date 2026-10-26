@@ -1,0 +1,6 @@
+#!/bin/bash
+
+python3 scripts/ablation/model_form_interp_GPR_ablation_temp.py
+python3 scripts/ablation/model_form_interp_GPR_ablation_spatial.py
+python3 scripts/ablation/model_form_interp_IPM_ablation_temp.py
+python3 scripts/ablation/model_form_interp_IPM_ablation_spatial.py

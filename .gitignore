@@ -12,9 +12,7 @@ topyvale_mavm_pulse25X/
 surrogate_test_case_1/.fmu_extracted/
 surrogate_test_case_1/.pytest_cache/
 
-# Sampled surrogate outputs of the paper-scale check (regenerable, ~8 MB)
-scripts/paper_scale_check/**/samples.npz
-
 # The metric tables and the figures of the runs are tracked.
 scripts/mavm_nuisance_split/nen9_net250_na400/block_*.csv
 scripts/mavm_nuisance_split/nen17_net250_na400/block_*.csv
+scripts/mavm_nuisance_split/nen17_net250_na400/ablation/

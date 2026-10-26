@@ -33,20 +33,25 @@ fullfieldvalmetrics_split/
 │   ├── FullSurrogate.fmu                 the FMU (Windows-only binary; run via Wine)
 │   ├── surrogate_fmu.py                  Linux-side wrapper: Surrogate, evaluate_batch
 │   ├── fmi3_wine.py                      stdlib-only FMI 3.0 driver (runs under Windows Python)
-│   ├── train-valid-data/                 vendor reference FEA: 209 train + 24 validation points
+│   ├── train-valid-data/                 reference FEA: 209 train + 24 validation points
 │   ├── tests/                            pytest suite (38 tests) pinning the design box & accuracy
 │   ├── read_surrogate.ipynb              FMU inspection / evaluation notebook
 │   └── README_surrogate.md               Wine setup, quirks, caveats   <-- read this first
 ├── scripts/
 │   ├── mavm_nuisance_split.py            *** the partitioned-metric pipeline ***
 │   ├── plot_mavm_nuisance.py             *** figures for a results directory ***
-│   ├── validate_against_paper.py         *** checks the metric vs the paper's published tables ***
-│   ├── paper_scale_check.py              *** surrogate at the paper's sampling density + sizing study ***
+│   ├── validate_against_paper.py         *** checks the metric vs the paper's tables ***
 │   ├── valmetrics.py                     MAVM implementation (vm.mavm; Whiting area-stepping)
 │   ├── topyvale_tcs_pulse25X.py          reference paper-MAVM pipeline (pooled E x A)
 │   ├── main_thermocouples_pulses25X.py   code that generates the paper point-sensor figures
-│   ├── mavm_nuisance_split/              partitioned-metric results (one dir per design)
-│   └── paper_scale_check/                paper-scale check results (one dir per design)
+│   ├── ablation/                         model-form / interpolation ablation
+│   │   ├── ablation_funcs.py             shared loading + metric helpers
+│   │   ├── make_mean_sim_temperature.py  regenerates the ablation temperature input
+│   │   ├── make_uncertainty_temperature.py  regenerates the ablation MAVM input
+│   │   ├── model_form_interp_*_ablation_*.py  IPM / GPR / regression ablation runs
+│   │   └── README.md                     ablation layout, inputs and outputs
+│   └── mavm_nuisance_split/              partitioned-metric results (one dir per design)
+│       └── nen17_net250_na400/ablation/  ablation inputs + generated outputs
 ├── STC_Exp_TCs_25X/                      experimental TC + CV pulse data (paper input)
 ├── STC_ProbSim_FieldsFull_25X_v4/        FEA samples used to generate the paper figures
 ├── STC_ProbSim_MetaData_25X/             summary CSVs incl. experimental epistemic errors
@@ -195,6 +200,85 @@ Compared with the pilot (`--n-et 16 --n-a 100`) the split values drop by
 10–30 % (TC2 4.66 → 3.05, TC3 44.3 → 41.0, TC6 11.6 → 9.24): with 250 E_t
 rows the bound selection has many more candidates, so the per-block p-box is
 better determined and the earlier small-sample optimism disappears.
+
+### 8. Ablation study
+
+The interpolation models that extrapolate the MAVM uncertainty from the
+thermocouple locations are studied on the 17-block `nen17_net250_na400`
+split (`--n-en 16 --n-et 250 --n-a 400`). The study compares the model form
+(IPM, GPR, OLS/RLM regression) for both the temperature and spatial
+interpolation.
+
+Inputs are in
+`scripts/mavm_nuisance_split/nen17_net250_na400/ablation/inputs/` and can be
+regenerated from the split results:
+
+```bash
+cd <repo root>
+~/anaconda3/envs/model-valid_interpol/bin/python \
+    scripts/ablation/make_mean_sim_temperature.py
+~/anaconda3/envs/model-valid_interpol/bin/python \
+    scripts/ablation/make_uncertainty_temperature.py
+```
+
+`make_mean_sim_temperature.py` averages the simulated temperature over the
+block runs. `make_uncertainty_temperature.py` writes the per-sensor
+`sim_plus`/`sim_minus`, `model_form_plus`/`model_form_minus` and
+`total_plus`/`total_minus` rows; the simulation terms use the E_n block
+selected by `split_d+_en`/`split_d-_en` in `mavm_summary.csv`.
+
+The ablation scripts need the environment containing PyTorch:
+
+```bash
+cd <repo root>
+~/anaconda3/envs/model-valid_interpol/bin/python \
+    scripts/ablation/model_form_interp_reg_ablation_spatial_OLS.py
+```
+
+The eight scripts cover IPM, GPR and least-squares regression (OLS/RLM) for the temperature
+and spatial cases. The IPM/GPR scripts train for up to 12 000 iterations per configuration; the regression scripts finish in seconds.
+
+* GPR - Gaussian Process Regression
+* IPM - Interval Predictor Model
+* OLS - Ordinary Least Squares
+* RLM - Robust Linear Models
+
+
+Inputs come from the `nen17_net250_na400` split and its block runs:
+
+* `pointsensors_total_uncertainty_temperature.csv` — MAVM uncertainty per
+  sensor. `sim_plus` / `sim_minus` are evaluated in the E_n block selected by
+  `split_d+_en` / `split_d-_en` from `mavm_summary.csv`, using the same
+  max/min-by-quantile-sum and nominal-CDF rules as
+  `scripts/main_thermocouples_pulses25X.py`. `model_form_plus` /
+  `model_form_minus` are `split_d+` / `split_d-`, and `total_plus` /
+  `total_minus` are `sim + model_form`. Regenerate it with
+  `scripts/ablation/make_uncertainty_temperature.py`.
+* `mean_sim_temperature.csv` — mean simulated nominal temperature per
+  thermocouple, averaged over all rows of `block_*.csv`. Regenerate it with
+  `scripts/ablation/make_mean_sim_temperature.py`.
+
+Every script resolves these paths relative to `__file__`, so it can be run from
+any working directory.
+
+Results are written to
+`scripts/mavm_nuisance_split/nen17_net250_na400/ablation/outputs/<model>/`
+(`ipm_interp_{spatial,temp}`, `interp_gpr_{spatial,temp}`,
+`interp_reg_{spatial,temp}`), with model coefficients, training predictions, leave-one-out ablation tables and summary CSVs. See `scripts/ablation/README.md` for the full script-to-output map.
+
+| script suffix     | output directory       |
+|-------------------|------------------------|
+| `IPM_ablation_spatial` | `ipm_interp_spatial` |
+| `IPM_ablation_temp`    | `ipm_interp_temp`    |
+| `GPR_ablation_spatial` | `interp_gpr_spatial` |
+| `GPR_ablation_temp`    | `interp_gpr_temp`    |
+| `reg_ablation_spatial_*` | `interp_reg_spatial` |
+| `reg_ablation_temp_*`    | `interp_reg_temp`    |
+
+Inside each directory: `model_coefficients/`, `training_predictions/`,
+`ablation_results/`, `surfaces/` (where applicable) and the
+`ablation_summary*.csv` tables. The OLS scripts cover model types 1–8 and the
+RLM scripts 9–16, so they share a directory without overwriting each other.
 
 ## Two MAVM conventions
 
