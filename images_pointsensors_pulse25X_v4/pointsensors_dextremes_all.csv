@@ -1,0 +1,9 @@
+Sensor,d+_max,d-_max,d+_stat_key,d-_stat_key
+TC3,8.612552159833175,0.0,sim-max_exp-max,sim-min_exp-min
+TC5,0.0,0.0015510011619135522,sim-max_exp-min,sim-min_exp-min
+TC6,0.0,9.533452395765957e-05,sim-max_exp-min,sim-min_exp-min
+TC8,0.554172884717874,0.0,sim-max_exp-max,sim-min_exp-min
+TC9,0.025849199824452655,0.0,sim-max_exp-max,sim-min_exp-min
+TC10,0.0,7.761439970564537,sim-max_exp-min,sim-min_exp-min
+TC2,0.0,0.0009413310363124551,sim-max_exp-min,sim-min_exp-min
+CV,0.5605909644362221,0.0,sim-max_exp-max,sim-min_exp-min

@@ -1,0 +1,47 @@
+============================= test session starts ==============================
+platform linux -- Python 3.13.5, pytest-8.3.4, pluggy-1.5.0 -- /home/wiera/anaconda3/bin/python3
+cachedir: .pytest_cache
+rootdir: /home/wiera/Documents/fullfieldvalmetrics_new/surrogate_test_case_1
+plugins: anyio-4.7.0
+collecting ... collected 38 items
+
+tests/test_data_integrity.py::test_shapes PASSED                         [  2%]
+tests/test_data_integrity.py::test_all_values_finite_and_numeric PASSED  [  5%]
+tests/test_data_integrity.py::test_doe_and_results_headers_are_aligned PASSED [  7%]
+tests/test_data_integrity.py::test_no_duplicate_design_points PASSED     [ 10%]
+tests/test_data_integrity.py::test_validation_points_inside_training_box PASSED [ 13%]
+tests/test_data_integrity.py::test_design_space_matches_frozen_expectations PASSED [ 15%]
+tests/test_data_integrity.py::test_temperatures_physically_plausible_in_reference PASSED [ 18%]
+tests/test_interpolation.py::test_training_points_reproduced_exactly PASSED [ 21%]
+tests/test_interpolation.py::test_training_normalized_rmse PASSED        [ 23%]
+tests/test_interpolation.py::test_validation_r2_floor PASSED             [ 26%]
+tests/test_interpolation.py::test_validation_absolute_error_bounds PASSED [ 28%]
+tests/test_interpolation.py::test_validation_normalized_rmse PASSED      [ 31%]
+tests/test_model_description.py::test_fmi_version_and_tool PASSED        [ 34%]
+tests/test_model_description.py::test_inputs_match_training_doe_headers PASSED [ 36%]
+tests/test_model_description.py::test_outputs_match_results_headers PASSED [ 39%]
+tests/test_model_description.py::test_value_references_well_formed PASSED [ 42%]
+tests/test_model_description.py::test_start_values_are_all_zero PASSED   [ 44%]
+tests/test_model_description.py::test_binary_layout_is_windows_only PASSED [ 47%]
+tests/test_model_description.py::test_backend_selection_follows_binary_layout PASSED [ 50%]
+tests/test_model_description.py::test_surrogate_payload_present PASSED   [ 52%]
+tests/test_model_description.py::test_dll_omits_setup_experiment PASSED  [ 55%]
+tests/test_model_description.py::test_default_experiment_declares_stop_time PASSED [ 57%]
+tests/test_physics_invariants.py::test_invariants_hold_in_reference_data PASSED [ 60%]
+tests/test_physics_invariants.py::test_invariants_hold_in_fmu_output PASSED [ 63%]
+tests/test_physics_invariants.py::test_fmu_envelope_close_to_reference PASSED [ 65%]
+tests/test_physics_invariants.py::test_sensitivity_signs_agree_with_fea PASSED [ 68%]
+tests/test_wine_pipeline.py::test_wine_toolchain_available PASSED        [ 71%]
+tests/test_wine_pipeline.py::test_driver_reports_model_over_wine PASSED  [ 73%]
+tests/test_wine_pipeline.py::test_deterministic_within_one_process PASSED [ 76%]
+tests/test_wine_pipeline.py::test_deterministic_across_processes PASSED  [ 78%]
+tests/test_wine_pipeline.py::test_batch_equals_single_evaluations PASSED [ 81%]
+tests/test_wine_pipeline.py::test_batch_is_order_independent PASSED      [ 84%]
+tests/test_wine_pipeline.py::test_fresh_instance_equivalence PASSED      [ 86%]
+tests/test_wine_pipeline.py::test_unknown_input_rejected_before_running PASSED [ 89%]
+tests/test_wine_pipeline.py::test_result_frame_has_all_inputs_and_outputs PASSED [ 92%]
+tests/test_wine_pipeline.py::test_outputs_finite_across_domain PASSED    [ 94%]
+tests/test_wine_pipeline.py::test_raw_start_values_are_evaluable PASSED  [ 97%]
+tests/test_wine_pipeline.py::test_repr_summarises_model PASSED           [100%]
+
+============================= 38 passed in 47.31s ==============================

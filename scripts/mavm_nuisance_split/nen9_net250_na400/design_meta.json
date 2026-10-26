@@ -1,0 +1,88 @@
+{
+  "seed": 20261021,
+  "n_en_sobol": 8,
+  "n_en_total": 9,
+  "n_et": 250,
+  "n_a": 400,
+  "row_order": "((en * n_et) + et) * n_a + a",
+  "E_N_BOX": {
+    "I_coil_rms (A)": [
+      1550.0,
+      94.2
+    ],
+    "F_coil (Hz)": [
+      123500.0,
+      500.0
+    ],
+    "T_cool_sample (degC)": [
+      149.0,
+      2.2
+    ]
+  },
+  "E_T_BOX": {
+    "HTC_sample": [
+      43600.0,
+      4300.0
+    ],
+    "St_alpha_scaling": [
+      1.0,
+      0.05
+    ],
+    "St_sigma_scaling": [
+      1.0,
+      0.05
+    ],
+    "St_k_scaling": [
+      1.0,
+      0.05
+    ],
+    "St_E_scaling": [
+      1.0,
+      0.05
+    ],
+    "St_nu_scaling": [
+      1.0,
+      0.05
+    ],
+    "St_cp_scaling": [
+      1.0,
+      0.05
+    ],
+    "Cu_sigma_scaling": [
+      1.0,
+      0.05
+    ],
+    "Cu_k_scaling": [
+      1.0,
+      0.05
+    ],
+    "Cu_rho_scaling": [
+      1.0,
+      0.05
+    ]
+  },
+  "A_NORMAL": {
+    "alpha_tb (deg)": {
+      "mean": 0.7,
+      "sigma": 0.47
+    },
+    "beta_tb (deg)": {
+      "mean": -0.32,
+      "sigma": 0.35
+    },
+    "dx (mm)": {
+      "mean": -1.42,
+      "sigma": 0.26
+    },
+    "dy (mm)": {
+      "mean": 0.5,
+      "sigma": 0.3
+    },
+    "dz (mm)": {
+      "mean": -0.23,
+      "sigma": 0.26
+    }
+  },
+  "A_TRUNC_SIGMA": 3.0,
+  "E_n_centre_first": true
+}

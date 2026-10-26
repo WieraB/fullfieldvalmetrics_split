@@ -1,0 +1,9 @@
+sensor,convention,split_d+,split_d+_en,split_d+_stat,split_d-,split_d-_en,split_d-_stat,merged_d+,merged_d+_stat,merged_d-,merged_d-_stat,d+_gain_vs_merged,d-_gain_vs_merged
+TC2,model_form,3.0543181132681205,3,sim-max_exp-max,7.052323776469158,4,sim-min_exp-min,0.0,sim-max_exp-min,0.0,sim-min_exp-min,3.0543181132681205,7.052323776469158
+TC3,model_form,41.04757697796325,3,sim-max_exp-max,0.0,0,sim-min_exp-min,9.751763725312191,sim-max_exp-max,0.0,sim-min_exp-min,31.29581325265106,0.0
+TC5,model_form,3.42771306214587,6,sim-max_exp-max,3.970168143488867,5,sim-min_exp-min,0.0,sim-max_exp-min,0.0008048046570544361,sim-min_exp-min,3.42771306214587,3.969363338831813
+TC6,model_form,9.236794860715696,3,sim-max_exp-max,10.298757958067814,4,sim-min_exp-min,0.0,sim-max_exp-min,0.0,sim-min_exp-min,9.236794860715696,10.298757958067814
+TC8,model_form,8.987753845024551,6,sim-max_exp-max,0.2311613070129522,4,sim-min_exp-min,0.8867674015496498,sim-max_exp-max,0.0,sim-min_exp-min,8.100986443474902,0.2311613070129522
+TC9,model_form,10.941337003973512,3,sim-max_exp-max,4.196146781790293,4,sim-min_exp-min,0.02200975700171174,sim-max_exp-max,0.0,sim-min_exp-min,10.9193272469718,4.196146781790293
+TC10,model_form,0.0,0,sim-max_exp-min,17.791597747556988,4,sim-min_exp-min,0.0,sim-max_exp-min,8.318983529316611,sim-min_exp-min,0.0,9.472614218240377
+CV,model_form,9.567718844313594,3,sim-max_exp-max,1.171038343282066,4,sim-min_exp-min,2.1119287576618446,sim-max_exp-max,0.0,sim-min_exp-min,7.455790086651749,1.171038343282066
