@@ -1,0 +1,30 @@
+Pooled vs split comparison run
+========================================
+Generated: 2026-10-30T11:15:29
+Repository root: /home/wiera/Documents/fullfieldvalmetrics_split
+Pooled root: /home/wiera/Documents/fullfieldvalmetrics_new
+Split root: /home/wiera/Documents/fullfieldvalmetrics_split/scripts/mavm_nuisance_split/nen17_net250_na400/ablation/outputs
+Pooled target table: /home/wiera/Documents/fullfieldvalmetrics_new/images_pointsensors_pulse25X_v4/pointsensors_total_uncertainty_temperature.csv
+Split target table: /home/wiera/Documents/fullfieldvalmetrics_split/scripts/mavm_nuisance_split/nen17_net250_na400/ablation/inputs/pointsensors_total_uncertainty_temperature.csv
+Output directory: /home/wiera/Documents/fullfieldvalmetrics_split/scripts/ablation_plots/comparison_outputs
+Figure formats: png
+DPI: 300
+
+Python: 3.11.14
+Platform: Linux-7.0.0-34-generic-x86_64-with-glibc2.39
+pandas: 2.3.3
+numpy: 2.3.5
+matplotlib: 3.10.6
+seaborn: 0.13.2
+
+Common configurations:
+  reg_spatial         16 common (pooled 16, split 16)
+  reg_temp             4 common (pooled 4, split 4)
+  gpr_spatial         32 common (pooled 32, split 32)
+  gpr_temp            16 common (pooled 17, split 16)
+  ipm_spatial         20 common (pooled 20, split 20)
+  ipm_temp            20 common (pooled 20, split 20)
+
+Warnings: none
+
+Target validation: all checked tables match result 'measured' values.

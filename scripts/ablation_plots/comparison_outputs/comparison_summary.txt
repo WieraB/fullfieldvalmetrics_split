@@ -1,0 +1,64 @@
+POOLED vs SPLIT UNCERTAINTY-METRIC INTERPOLATION
+==============================================================
+
+Common model configurations
+--------------------------------------------------------------
+  Regression (spatial)             16 common /  16 pooled /  16 split
+  Regression (temperature)          4 common /   4 pooled /   4 split
+  GPR (spatial)                    32 common /  32 pooled /  32 split
+  GPR (temperature)                16 common /  17 pooled /  16 split
+  IPM (spatial)                    20 common /  20 pooled /  20 split
+  IPM (temperature)                20 common /  20 pooled /  20 split
+
+Target uncertainty changes (split vs pooled)
+--------------------------------------------------------------
+  Simulation plus             median -66%   mean Δ -11.2 °C   (0 up / 7 down)
+  Simulation minus            median -57%   mean Δ -9.34 °C   (0 up / 7 down)
+  Model-form plus        median Δ 8.43 °C   mean Δ 10.1 °C   (6 up / 0 down)
+  Model-form minus       median Δ 6.51 °C   mean Δ 6.58 °C   (7 up / 0 down)
+  Total plus                  median -14%   mean Δ -1.1 °C   (2 up / 5 down)
+  Total minus                 median -10%   mean Δ -2.77 °C   (3 up / 4 down)
+  Model-form percentages are omitted because pooled values are often near zero.
+
+Interpolation performance across all common configurations
+--------------------------------------------------------------
+  Total plus
+    Mean relative error          median change     +203%   split win rate   2.8 %
+    Mean interval score          median change     +261%   split win rate   0.0 %
+    PI coverage error |c-0.95|   median change         0   split win rate  20.4 %
+    Accuracy (10% tolerance)     median change    -0.143   split win rate  16.7 %
+
+  Total minus
+    Mean relative error          median change      +96%   split win rate   1.9 %
+    Mean interval score          median change      +85%   split win rate   9.3 %
+    PI coverage error |c-0.95|   median change    0.0714   split win rate  12.0 %
+    Accuracy (10% tolerance)     median change         0   split win rate  26.9 %
+
+Component pattern (median change in RMSE / interval score)
+--------------------------------------------------------------
+  Simulation plus    RMSE       -64%   interval score       -63%
+  Simulation minus   RMSE       -57%   interval score       -55%
+  Model-form plus    RMSE      +315%   interval score      +312%
+  Model-form minus   RMSE      +145%   interval score        +4%
+  Total plus         RMSE      +174%   interval score      +261%
+  Total minus        RMSE       +53%   interval score       +85%
+  Negative = split lower (better) for these error/interval metrics.
+
+Excluded configurations (not present in both studies)
+--------------------------------------------------------------
+  gpr_temp           0.003_RBF_3_None             only in pooled
+
+Target-table validation
+--------------------------------------------------------------
+  All checked target tables match the result-file 'measured' values.
+
+Definitions
+--------------------------------------------------------------
+  Positive change = split value is higher than pooled value.
+  Error/interval metrics: lower is better; negative change means split improves.
+  Coverage: better means closer to 0.95; coverage error is |coverage - 0.95|.
+  Coverage-error changes are absolute changes in that distance.
+  Accuracy: higher is better; all studies use a 10 % relative tolerance.
+  Accuracy changes are absolute accuracy points (0-1).
+  Win rates are over common model configurations.
+  independent-sample test.

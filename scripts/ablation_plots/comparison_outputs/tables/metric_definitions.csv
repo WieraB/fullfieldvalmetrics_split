@@ -1,0 +1,11 @@
+metric,label,unit,better_rule,percent_change_defined,description
+mean_rel_error,Mean relative error,,lower,True,Mean absolute relative error over the leave-one-out thermocouples.
+RMSE,RMSE,°C,lower,True,Root mean squared error in °C.
+MAE,MAE,°C,lower,True,Mean absolute error in °C.
+MAPE,MAPE,%,lower,True,Mean absolute percentage error over non-zero targets.
+mean_pi_error,Mean PI error,°C,lower,True,Mean distance of the target outside the 95 % prediction interval.
+mean_pi_width,Mean PI width,°C,lower,True,Mean 95 % prediction-interval width.
+mean_interval_score,Mean interval score,,lower,True,Mean strictly proper interval score; lower is better.
+pi_coverage,PI coverage,,coverage,False,Fraction of targets inside the 95 % prediction interval; nominal value 0.95.
+pi_coverage_error,PI coverage error |c-0.95|,,lower,False,Derived metric |pi_coverage - 0.95|; lower is better.
+accuracy,Accuracy (10% tolerance),,higher,False,Fraction of predictions within 10 % relative tolerance.
