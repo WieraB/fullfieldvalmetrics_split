@@ -1,8 +1,6 @@
 # fullfieldvalmetrics_split
 
-Repository for the **nuisance/transferrable epistemic
-uncertainty split** for the validation process using MAVM,
-applied to the pulse-25X thermocouple and coil-voltage point sensors.
+Repository for the **nuisance/transferrable epistemic uncertainty split** for the validation process using MAVM, applied to the pulse-25X thermocouple and coil-voltage point sensors.
 
 It was isolated from `fullfieldvalmetrics`. The experimental data and the code that generates the paper figures [1] are included unchanged.
 
@@ -10,10 +8,16 @@ It was isolated from `fullfieldvalmetrics`. The experimental data and the code t
 
 Scrambled Sobol sampling is used to sample all uncertainty dimensions.
 
+<p align="center">
+  <img src="docs/KC4_update.png" width="600">
+  <br>
+  <em>Figure 1: The difference between pooled and split epistemic uncertainty set-up.</em>
+</p>
+
+
 ## The idea
 
-In the paper [1]'s pipeline every epistemic input is pooled into a single epistemic
-axis and every aleatory input into another, so the surrogate is sampled as `E x A`. When `E` contains HIVE-specific uncertainty (the coil current is only known to +/-94.2 A) the pooled epistemic spread is so wide that the simulation p-box swallows the experimental box, and `d+`/`d-` approach zero. Here, the partition splits the epistemic inputs by *context of
+In the paper [1]'s pipeline every epistemic input is pooled into a single epistemic axis and every aleatory input into another, so the surrogate is sampled as `E x A`. When `E` contains HIVE-specific uncertainty (the coil current is only known to +/-94.2 A) the pooled epistemic spread is so wide that the simulation p-box swallows the experimental box, and `d+`/`d-` approach zero. Here, the partition splits the epistemic inputs by *context of
 use*:
 
 * **E_t — transferrable**: epistemic uncertainty that still applies at the use context (material property scalings, heat-transfer coefficient).
@@ -122,12 +126,9 @@ cd <repo root>
 
 `--n-en` is the number of *non-centre* nuisance points; the design is the
 best-estimate centre plus `n_en` scrambled-Sobol points, so the tensor has
-`(n_en+1) x n_et x n_a` surrogate evaluations. Each `E_n` block is evaluated
-as one `evaluate_batch` call and cached in `block_XX.csv`, so an interrupted
-run resumes where it stopped (`--force` re-evaluates).
+`(n_en+1) x n_et x n_a` surrogate evaluations. Each `E_n` block is evaluated as one `evaluate_batch` call and cached in `block_XX.csv`, so an interrupted run resumes where it stopped (`--force` re-evaluates).
 
-`--convention` selects the bound-selection rule of the reported metric:
-`model_form` (default) is the rule used in the paper [1], `reference` is the max over all four bound combinations. The two are written to different files, so neither overwrites the other.
+`--convention` selects the bound-selection rule of the reported metric: `model_form` (default) is the rule used in the paper [1], `reference` is the max over all four bound combinations. The two are written to different files, so neither overwrites the other.
 
 Results land in `scripts/mavm_nuisance_split/nen*_net*_na*/`:
 
@@ -167,9 +168,7 @@ cd <repo root>
     --res-dir scripts/mavm_nuisance_split/nen9_net250_na400
 ```
 
-The same partitioned pipeline, but at the paper's sampling size
-inside every E_n block [1]: 250 transferrable-epistemic points x 400 aleatory
-draws = 100 000 surrogate evaluations per block, 9 blocks = 900 000
+The same partitioned pipeline, but at the paper's sampling size inside every E_n block [1]: 250 transferrable-epistemic points x 400 aleatory draws = 100 000 surrogate evaluations per block, 9 blocks = 900 000
 evaluations at 1.67 ms/point, ~25 min. The block samples (~1.1 GB) are
 gitignored — the metric tables and the figures of the run are tracked.
 
