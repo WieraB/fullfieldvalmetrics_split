@@ -6,7 +6,9 @@ It was isolated from `fullfieldvalmetrics`. The experimental data and the code t
 
 [1] - "Towards virtual qualification in nuclear fusion: demonstrating probabilistic model validation on a high heat flux component"
 
-Scrambled Sobol sampling is used to sample all uncertainty dimensions.
+Scrambled Sobol sampling is used for the epistemic sets (`E_n`, `E_t`); the
+aleatory set (`A`) uses independent truncated-normal draws, with the same
+draws reused across every `E_n` block.
 
 <p align="center">
   <img src="docs/KC4_update.png" width="600">
@@ -88,8 +90,13 @@ cd <repo root>
 ~/anaconda3/envs/pyvale/bin/python scripts/topyvale_tcs_pulse25X.py
 ```
 
-Reads `STC_ProbSim_FieldsReduced_25X` if present, otherwise
-`STC_ProbSim_FieldsFull_25X_v4`. Writes `topyvale_mavm_pulse25X/`.
+Reads `STC_ProbSim_FieldsReduced_25X/SamplingResults.csv` from the current
+working directory and reshapes it as 50 epistemic x 100 aleatory samples.
+The reduced directory is not included in this repository, so this step cannot
+run against the checked-in data as-is: `STC_ProbSim_FieldsFull_25X_v4`
+provides `SamplingResultsOnlyPointSensors.csv` with a different file name,
+column set and 250 x 400 layout. Writes `topyvale_mavm_pulse25X/`. 
+Please refer to `fullfieldvalmetrics` repository for more info.
 
 ### 3. Reproduce the paper's point-sensor figures
 
@@ -263,7 +270,7 @@ any working directory.
 Results are written to
 `scripts/mavm_nuisance_split/nen17_net250_na400/ablation/outputs/<model>/`
 (`ipm_interp_{spatial,temp}`, `interp_gpr_{spatial,temp}`,
-`interp_reg_{spatial,temp}`), with model coefficients, training predictions, leave-one-out ablation tables and summary CSVs. See `scripts/ablation/README.md` for the full script-to-output map.
+`interp_reg_{spatial,temp}`), with model coefficients, training predictions, leave-one-out ablation tables and summary CSVs.
 
 | script suffix     | output directory       |
 |-------------------|------------------------|
@@ -278,6 +285,85 @@ Inside each directory: `model_coefficients/`, `training_predictions/`,
 `ablation_results/`, `surfaces/` (where applicable) and the
 `ablation_summary*.csv` tables. The OLS scripts cover model types 1–8 and the
 RLM scripts 9–16, so they share a directory without overwriting each other.
+
+
+### 9. Ablation study results comparison (paper's pooled vs split)
+
+`compare_pooled_vs_split.py` compares the split-study ablation summaries in
+
+```
+scripts/mavm_nuisance_split/nen17_net250_na400/ablation/outputs/
+```
+
+with the corresponding pooled-study summaries in the main
+`fullfieldvalmetrics_new` repository:
+
+```
+interp_reg_spatial/
+interp_reg_temp/
+interp_gpr_spatial/
+interp_gpr_temp/
+ipm_interp_spatial/
+ipm_interp_temp/
+```
+
+Only model configurations present in both studies are paired.
+
+#### Running
+
+From the split repository root:
+
+```bash
+~/anaconda3/envs/pyvale/bin/python scripts/ablation_plots/compare_pooled_vs_split.py
+```
+
+The pooled repository is assumed to be at
+`~/Documents/fullfieldvalmetrics_new`. Path override is available as:
+
+```bash
+~/anaconda3/envs/pyvale/bin/python scripts/ablation_plots/compare_pooled_vs_split.py \
+  --pooled-root /path/to/fullfieldvalmetrics_new \
+  --split-root scripts/mavm_nuisance_split/nen17_net250_na400/ablation/outputs \
+  --outdir scripts/ablation_plots/comparison_outputs
+```
+
+Use `--formats png pdf` to write both formats, and `--dpi`
+to change the image resolution.
+
+Everything is written below `scripts/ablation_plots/comparison_outputs/`.
+
+#### What is compared
+
+The ablation summaries contain one row per `d_type`:
+
+```
+sim_plus, sim_minus, model_form_plus, model_form_minus, total_plus, total_minus
+```
+
+For each common model configuration and `d_type`, the script computes
+
+```
+delta      = split - pooled
+pct_change = 100 * delta / pooled        (for positive error/interval metrics)
+better     = split / pooled / tie
+```
+
+The win-rate columns use these rules:
+
+- lower is better for `MAE`, `RMSE`, `MAPE`, `mean_rel_error`,
+  `mean_pi_error`, `mean_pi_width`, `mean_interval_score` and
+  `pi_coverage_error`;
+- higher is better for `accuracy`;
+- `pi_coverage` is judged by distance to the nominal 0.95 level.
+
+
+#### To note
+
+- **Do not pair per-thermocouple errors across studies.** The pooled and split studies use different target values, so only model configurations aand summary metrics are paired.
+- **Accuracy columns are normalised.** IPM summaries name the columns
+  `accuracy_2pct` and `accuracy_2pct_matrix`, but the IPM ablation script uses the same 10 % relative tolerance as the regression/GPR scripts. The comparison maps both to `accuracy`.
+- **Win rates are configuration-level.** A win rate of 100 % means every common configuration in that family had a lower value in the split study.
+
 
 ## Two MAVM conventions
 
@@ -305,82 +391,3 @@ Taken from Table 1 of the paper [1]:
   marks "Electrical conductivity, copper" as **No** (17 epistemic "Yes"
   inputs). TODO
 * `E_n` blocks are ordered by the Sobol draw, not by current.
-* The paper-scale run uses **250** E_t points, which is not a power of two, so scipy warns that the scrambled-Sobol sequence is not perfectly balance ("balance properties of Sobol' points require n to be a power of 2"). The same 250-point sequence reproduces the paper's published values to 1.6 % in `scripts/paper_scale_check.py`, so the imbalance is not important for this.
-
-
-## Ablation study results comparison (paper's pooled vs split)
-
-`compare_pooled_vs_split.py` compares the split-study ablation summaries in
-
-```
-scripts/mavm_nuisance_split/nen17_net250_na400/ablation/outputs/
-```
-
-with the corresponding pooled-study summaries in the main
-`fullfieldvalmetrics_new` repository:
-
-```
-interp_reg_spatial/
-interp_reg_temp/
-interp_gpr_spatial/
-interp_gpr_temp/
-ipm_interp_spatial/
-ipm_interp_temp/
-```
-
-Only model configurations present in both studies are paired.
-
-### Running
-
-From the split repository root:
-
-```bash
-~/anaconda3/envs/pyvale/bin/python scripts/ablation_plots/compare_pooled_vs_split.py
-```
-
-The pooled repository is assumed to be at
-`~/Documents/fullfieldvalmetrics_new`. Path override is available as:
-
-```bash
-~/anaconda3/envs/pyvale/bin/python scripts/plots/compare_pooled_vs_split.py \
-  --pooled-root /path/to/fullfieldvalmetrics_new \
-  --split-root scripts/mavm_nuisance_split/nen17_net250_na400/ablation/outputs \
-  --outdir scripts/ablation_plots/comparison_outputs
-```
-
-Use `--formats png pdf` to write both formats, and `--dpi`
-to change the image resolution.
-
-Everything is written below `scripts/ablation_plots/comparison_outputs/`.
-
-### What is compared
-
-The ablation summaries contain one row per `d_type`:
-
-```
-sim_plus, sim_minus, model_form_plus, model_form_minus, total_plus, total_minus
-```
-
-For each common model configuration and `d_type`, the script computes
-
-```
-delta      = split - pooled
-pct_change = 100 * delta / pooled        (for positive error/interval metrics)
-better     = split / pooled / tie
-```
-
-The win-rate columns use these rules:
-
-- lower is better for `MAE`, `RMSE`, `MAPE`, `mean_rel_error`,
-  `mean_pi_error`, `mean_pi_width`, `mean_interval_score` and
-  `pi_coverage_error`;
-- higher is better for `accuracy`;
-- `pi_coverage` is judged by distance to the nominal 0.95 level.
-
-
-### To note
-
-- **Do not pair per-thermocouple errors across studies.** The pooled and split studies use different target values, so only model configurations aand summary metrics are paired.
-- **Accuracy columns are normalised.** IPM summaries name the columns
-  `accuracy_2pct` and `accuracy_2pct_matrix`, but the IPM ablation script uses the same 10 % relative tolerance as the regression/GPR scripts. The comparison maps both to `accuracy`.
-- **Win rates are configuration-level.** A win rate of 100 % means every common configuration in that family had a lower value in the split study.
