@@ -4,6 +4,11 @@ The ablation interpolation models need one MAVM uncertainty value per
 thermocouple and convention. This script reproduces the calculation in
 ``scripts/main_thermocouples_pulses25X.py``:
 
+sim_plus - Block that maximises d+
+sim_minus - Block that maximises d−
+model_form_plus	- Maximum d+ across all blocks
+model_form_minus - Maximum d− across all blocks
+
 * ``sim_plus`` / ``sim_minus`` — simulation epistemic uncertainty evaluated in
   the same E_n block that produced ``split_d+`` / ``split_d-``. Within that
   block the maximum (``sim_plus``) or minimum (``sim_minus``) CDF is selected

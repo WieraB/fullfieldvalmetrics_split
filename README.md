@@ -1,14 +1,6 @@
 # fullfieldvalmetrics_split
 
-Repository for the **nuisance/transferrable epistemic uncertainty split** for the validation process using MAVM, applied to the pulse-25X thermocouple and coil-voltage point sensors.
-
-It was isolated from `fullfieldvalmetrics`. The experimental data and the code that generates the paper figures [1] are included unchanged.
-
-[1] - "Towards virtual qualification in nuclear fusion: demonstrating probabilistic model validation on a high heat flux component"
-
-Scrambled Sobol sampling is used for the epistemic sets (`E_n`, `E_t`); the
-aleatory set (`A`) uses independent truncated-normal draws, with the same
-draws reused across every `E_n` block.
+Repository for the nuisance/transferrable epistemic uncertainty split for the validation process using MAVM, applied to the pulse-25X thermocouple and coil-voltage point sensors. It was isolated from `fullfieldvalmetrics`. The experimental data and the code that generates the paper figures [1] are included unchanged.
 
 <p align="center">
   <img src="docs/KC4_update.png" width="600">
@@ -16,17 +8,20 @@ draws reused across every `E_n` block.
   <em>Figure 1: The difference between pooled and split epistemic uncertainty set-up.</em>
 </p>
 
+[1] - "Towards virtual qualification in nuclear fusion: demonstrating probabilistic model validation on a high heat flux component"
 
 ## The idea
 
-In the paper [1]'s pipeline every epistemic input is pooled into a single epistemic axis and every aleatory input into another, so the surrogate is sampled as `E x A`. When `E` contains HIVE-specific uncertainty (the coil current is only known to +/-94.2 A) the pooled epistemic spread is so wide that the simulation p-box swallows the experimental box, and `d+`/`d-` approach zero. Here, the partition splits the epistemic inputs by *context of
-use*:
+In the paper [1]'s pipeline every epistemic input is pooled into a single epistemic axis and every aleatory input into another, so the surrogate is sampled as `E x A`. When `E` contains HIVE-specific uncertainty (the coil current is only known to +/-94.2 A) the pooled epistemic spread is so wide that the simulation p-box swallows the experimental box, and `d+`/`d-` approach zero. Here, the partition splits the epistemic inputs by context of
+use:
 
 * **E_t — transferrable**: epistemic uncertainty that still applies at the use context (material property scalings, heat-transfer coefficient).
 * **E_n — nuisance**: HIVE-specific uncertainties not applied at the use context (coil current set-point, coolant temperature, coil frequency).
 * **A — aleatory**: irreducible uncertainties (`alpha_tb`, `beta_tb`, `dx`, `dy`, `dz`).
 
-The surrogate is sampled on a tensor of shape `E_n x E_t x A`. The MAVM is computed *within* each nuisance block (so `E_n` never enters a CDF and is not double counted), and the metric of interest is `max over E_n of d+ / d-`.
+The surrogate is sampled on a tensor of shape `E_n x E_t x A`. The MAVM is computed within each nuisance block (so `E_n` never enters a CDF and is not double counted), and the metric of interest is `max over E_n of d+ / d-`.
+
+Scrambled Sobol sampling is used for the epistemic sets (`E_n`, `E_t`). The aleatory set (`A`) uses independent truncated-normal draws, with the same draws reused across every `E_n` block.
 
 ## Layout
 
@@ -34,13 +29,17 @@ The surrogate is sampled on a tensor of shape `E_n x E_t x A`. The MAVM is compu
 fullfieldvalmetrics_split/
 ├── README.md                             this file
 ├── .gitignore
+├── run_all_exp.sh                        convenience launcher for the main ablation runs
 ├── plotter_log.log                       local log (untracked)
+├── docs/
+│   ├── KC4_update.drawio                 editable split-versus-pooled diagram
+│   └── KC4_update.png                    Figure 1 source image
 ├── surrogate_test_case_1/                Wine-wrapped SmartUQ surrogate
 │   ├── FullSurrogate.fmu                 the FMU (Windows-only binary; run via Wine)
 │   ├── surrogate_fmu.py                  Linux-side wrapper: Surrogate, evaluate_batch
 │   ├── fmi3_wine.py                      stdlib-only FMI 3.0 driver (runs under Windows Python)
 │   ├── train-valid-data/                 reference FEA: 209 train + 24 validation points
-│   ├── tests/                            pytest suite (38 tests) pinning the design box & accuracy
+│   ├── tests/                            pytest suite pinning the design box & accuracy
 │   ├── read_surrogate.ipynb              FMU inspection / evaluation notebook
 │   └── README_surrogate.md               Wine setup, quirks, caveats   <-- read this first
 ├── scripts/
@@ -50,14 +49,34 @@ fullfieldvalmetrics_split/
 │   ├── valmetrics.py                     MAVM implementation (vm.mavm; Whiting area-stepping)
 │   ├── topyvale_tcs_pulse25X.py          reference paper-MAVM pipeline (pooled E x A)
 │   ├── main_thermocouples_pulses25X.py   code that generates the paper point-sensor figures
-│   ├── ablation/                         model-form / interpolation ablation
+│   ├── ablation/                         model-form / interpolation ablation runs
 │   │   ├── ablation_funcs.py             shared loading + metric helpers
 │   │   ├── make_mean_sim_temperature.py  regenerates the ablation temperature input
 │   │   ├── make_uncertainty_temperature.py  regenerates the ablation MAVM input
-│   │   ├── model_form_interp_*_ablation_*.py  IPM / GPR / regression ablation runs
-│   │   └── README.md                     ablation layout, inputs and outputs
+│   │   └── model_form_interp_*_ablation_*.py  GPR / IPM / OLS / RLM runs
+│   ├── ablation_plots/                   ablation analysis and pooled-vs-split comparison
+│   │   ├── ablation_plots_*.ipynb        per-family ablation notebooks
+│   │   ├── compare_pooled_vs_split.py    combined comparison driver
+│   │   ├── plot_func.py                  shared plotting helpers
+│   │   └── comparison_outputs/           comparison tables, figures, summary and run info
 │   └── mavm_nuisance_split/              partitioned-metric results (one dir per design)
-│       └── nen17_net250_na400/ablation/  ablation inputs + generated outputs
+│       ├── nen9_net16_na100/             pilot split run
+│       ├── nen9_net250_na400/            paper-scale split run
+│       └── nen17_net250_na400/           17-block paper-scale run
+│           ├── block_*.csv               per-E_n block samples (gitignored)
+│           ├── design_meta.json          seed, sizes, partition and containment checks
+│           ├── mavm_profile.csv          per-sensor/per-block d+ and d-
+│           ├── mavm_summary.csv          max over E_n and merged-box baseline
+│           ├── plots/                    saved figures from plot_mavm_nuisance.py
+│           └── ablation/
+│               ├── inputs/               MAVM uncertainty + mean temperature inputs
+│               └── outputs/              refitted interpolation models and ablation results
+│                   └── {interp_gpr_spatial,interp_gpr_temp,interp_reg_spatial,
+│                        interp_reg_temp,ipm_interp_spatial,ipm_interp_temp}/
+│                       ├── model_coefficients/
+│                       ├── training_predictions/
+│                       ├── ablation_results/
+│                       └── plots/
 ├── STC_Exp_TCs_25X/                      experimental TC + CV pulse data (paper input)
 ├── STC_ProbSim_FieldsFull_25X_v4/        FEA samples used to generate the paper figures
 ├── STC_ProbSim_MetaData_25X/             summary CSVs incl. experimental epistemic errors
@@ -80,7 +99,7 @@ The surrogate needs Wine (Windows-only FMU binary). One-time setup is documented
 
 ```bash
 cd surrogate_test_case_1
-python3 -m pytest tests/ -q          # 38 tests, ~50 s
+python3 -m pytest tests/ -q 
 ```
 
 ### 2. Reproduce the paper's pooled-box MAVM
@@ -90,12 +109,6 @@ cd <repo root>
 ~/anaconda3/envs/pyvale/bin/python scripts/topyvale_tcs_pulse25X.py
 ```
 
-Reads `STC_ProbSim_FieldsReduced_25X/SamplingResults.csv` from the current
-working directory and reshapes it as 50 epistemic x 100 aleatory samples.
-The reduced directory is not included in this repository, so this step cannot
-run against the checked-in data as-is: `STC_ProbSim_FieldsFull_25X_v4`
-provides `SamplingResultsOnlyPointSensors.csv` with a different file name,
-column set and 250 x 400 layout. Writes `topyvale_mavm_pulse25X/`. 
 Please refer to `fullfieldvalmetrics` repository for more info.
 
 ### 3. Reproduce the paper's point-sensor figures
@@ -131,7 +144,7 @@ cd <repo root>
     [--convention model_form|reference] [--force]
 ```
 
-`--n-en` is the number of *non-centre* nuisance points; the design is the
+`--n-en` is the number of non-centre nuisance points. The design is the
 best-estimate centre plus `n_en` scrambled-Sobol points, so the tensor has
 `(n_en+1) x n_et x n_a` surrogate evaluations. Each `E_n` block is evaluated as one `evaluate_batch` call and cached in `block_XX.csv`, so an interrupted run resumes where it stopped (`--force` re-evaluates).
 
@@ -139,7 +152,7 @@ best-estimate centre plus `n_en` scrambled-Sobol points, so the tensor has
 
 Results land in `scripts/mavm_nuisance_split/nen*_net*_na*/`:
 
-| file | contents |
+| File | Contents |
 |---|---|
 | `block_XX.csv` | one E_n block: inputs + all 40 outputs, `n_et x n_a` rows |
 | `design_meta.json` | seed, sizes, partition, design-space containment check |
@@ -155,15 +168,24 @@ Results land in `scripts/mavm_nuisance_split/nen*_net*_na*/`:
     [--convention model_form|reference] [--sensors TC2 TC3]
 ```
 
-Writes six figures into `<res-dir>/plots/`:
+Writes 14 figures into `<res-dir>/plots/`:
 
 1. `01_profile_per_sensor.png` — `d+`/`d-` across the E_n blocks, one panel per sensor
 2. `02_dpm_vs_current.png` — the same against coil current (the dominant nuisance axis)
-3. `03_ecdfs.png` — p-box picture: per-block sub-boxes, merged box, experiment box (chosen sensors)
+3. `03_ecdfs.png` — p-box picture: per-block sub-boxes, merged box and experiment box (chosen sensors)
 4. `04_distributions.png` — per-block aleatory spreads vs the experiment band (chosen sensors)
-5. `05_split_vs_paper.png` — split metric vs the MAVM values from the paper [1] (`images_pointsensors_pulse25X_v4/pointsensors_total_uncertainty_temperature.csv`, rows `model_form_plus`/`model_form_minus`), with the same-sample merged value as the middle bar
+5. `05_split_vs_paper.png` — split metric vs the paper’s published model-form MAVM values [1], with the same-sample merged value as the middle bar
+6. `06_ecdfs_vs_paper.png` — split, pooled and experimental p-boxes (chosen sensors; subset selectable with `--selected`)
+7. `07_ecdfs_vs_paper.png` — presentation subset for TC2: pooled + experimental
+8. `08_ecdfs_vs_paper.png` — presentation subset for TC2: `split_d+` + experimental
+9. `09_ecdfs_vs_paper.png` — presentation subset for TC2: `split_d-` + experimental
+10. `10_dextremes_simcdfs.png` — simulation limits with the `d+`/`d-` MAVM CDF shifts; split blocks and the paper’s pooled p-box by default (chosen sensors; subset selectable with `--dextremes-selected`)
+11. `11_dextremes_simcdfs.png` — presentation subset for TC2: pooled
+12. `12_dextremes_simcdfs.png` — presentation subset for TC2: `split_d+`
+13. `13_dextremes_simcdfs.png` — presentation subset for TC2: `split_d-`
+14. `14_dextremes_simcdfs.png` — presentation subset for TC2: `split_d+` + `split_d-`
 
-All figures use model-form convention by default.
+Figures `07`–`09` and `11`–`14` are fixed-size TC2 results.
 
 ### 7. The paper-scale partitioned case
 
@@ -176,8 +198,7 @@ cd <repo root>
 ```
 
 The same partitioned pipeline, but at the paper's sampling size inside every E_n block [1]: 250 transferrable-epistemic points x 400 aleatory draws = 100 000 surrogate evaluations per block, 9 blocks = 900 000
-evaluations at 1.67 ms/point, ~25 min. The block samples (~1.1 GB) are
-gitignored — the metric tables and the figures of the run are tracked.
+evaluations. The block samples are gitignored, the metric tables and the figures of the run are tracked.
 
 Result (model-form convention, `scripts/mavm_nuisance_split/nen9_net250_na400/`),
 next to the paper's [1] published values:
@@ -195,17 +216,11 @@ next to the paper's [1] published values:
 
 Two things to read off it:
 
-* the **merged** column is the paper-style single epistemic box on the very
-  same samples, and it lands on the published numbers (TC2/TC5/TC6/TC10
-  exactly 0, TC3 +13 %, TC9 −15 %, TC10 +7 %; CV is the exception, +277 %);
-* the **split** column is what the partition buys: the pooled box swallows
+* The merged column is the paper-style single epistemic box on the very
+  same samples
+* The split column is what the partition achieves: the pooled box swallows
   the experiment for TC2/TC5/TC6/TC10 and the metric collapses to 0, while
-  the per-block boxes keep a non-zero, resolution-independent measure.
-
-Compared with the pilot (`--n-et 16 --n-a 100`) the split values drop by
-10–30 % (TC2 4.66 → 3.05, TC3 44.3 → 41.0, TC6 11.6 → 9.24): with 250 E_t
-rows the bound selection has many more candidates, so the per-block p-box is
-better determined and the earlier small-sample optimism disappears.
+  the per-block boxes keep non-zero values.
 
 ### 8. Ablation study
 
@@ -309,8 +324,6 @@ ipm_interp_temp/
 
 Only model configurations present in both studies are paired.
 
-#### Running
-
 From the split repository root:
 
 ```bash
@@ -359,7 +372,6 @@ The win-rate columns use these rules:
 
 #### To note
 
-- **Do not pair per-thermocouple errors across studies.** The pooled and split studies use different target values, so only model configurations aand summary metrics are paired.
 - **Accuracy columns are normalised.** IPM summaries name the columns
   `accuracy_2pct` and `accuracy_2pct_matrix`, but the IPM ablation script uses the same 10 % relative tolerance as the regression/GPR scripts. The comparison maps both to `accuracy`.
 - **Win rates are configuration-level.** A win rate of 100 % means every common configuration in that family had a lower value in the split study.
@@ -389,5 +401,5 @@ Taken from Table 1 of the paper [1]:
 
 * The FMU exposes `Cu_sigma_scaling` (18 inputs) while the paper's Table 1
   marks "Electrical conductivity, copper" as **No** (17 epistemic "Yes"
-  inputs). TODO
+  inputs).
 * `E_n` blocks are ordered by the Sobol draw, not by current.

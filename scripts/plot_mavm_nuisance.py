@@ -1,23 +1,33 @@
 """Plots for the E_n x E_t x A MAVM pilot (please refer to mavm_nuisance_split.py).
 
 Reads a results directory produced by ``mavm_nuisance_split.py`` and writes
-six figures into ``<res-dir>/plots/``:
+these figures into ``<res-dir>/plots/``:
 
-1. ``01_profile_per_sensor.png``  -- d+/d- vs E_n block, one panel per sensor
+1. ``01_profile_per_sensor.png`` -- d+/d- vs E_n block, one panel per sensor
 2. ``02_dpm_vs_current.png``     -- d+/d- vs coil current, all sensors
-3. ``03_split_vs_merged.png``    -- split metric vs merged-box baseline
-4. ``04_ecdfs.png``              -- p-box picture: sub-boxes, merged box,
+3. ``03_ecdfs.png``              -- p-box picture: sub-boxes, merged box,
                                     experiment box (chosen sensors)
-5. ``05_distributions.png``      -- per-block aleatory spreads vs experiment
-6. ``06_split_vs_paper.png``     -- split metric vs the paper's published
+4. ``04_distributions.png``      -- per-block aleatory spreads vs experiment
+5. ``05_split_vs_paper.png``     -- split metric vs the paper's published
                                     model-form MAVM values, same-sample
                                     merged value in between
+6. ``06_ecdfs_vs_paper.png``     -- split p-boxes vs pooled and experimental
+                                    p-boxes (subset selectable)
+7. ``10_dextremes_simcdfs.png``  -- simulation limits with the d+/d- MAVM
+                                    CDF shifts; split blocks and the paper's
+                                    pooled p-box by default (no experimental
+                                    p-box)
+
+``main()`` also writes the presentation subsets ``07``--``09`` of the
+split-vs-paper p-box figure.
 
 Usage (pyvale conda env):
 
     ~/anaconda3/envs/pyvale/bin/python scripts/plot_mavm_nuisance.py \\
         [--res-dir scripts/mavm_nuisance_split/nen9_net16_na100] \\
-        [--sensors TC2 TC3]
+        [--sensors TC2 TC3] \\
+        [--selected split_d+ split_d- pooled experimental] \\
+        [--dextremes-selected split_d+ split_d- pooled]
 """
 
 from __future__ import annotations
@@ -58,11 +68,20 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 import mavm_nuisance_split as mns  # noqa: E402
+import valmetrics as vm  # noqa: E402
 
 SIM_C = _PALETTE[0] if _PALETTE else "tab:blue"
+SIM_C2 = _PALETTE[2] if _PALETTE else "tab:cyan"
 EXP_C = _PALETTE[1] if _PALETTE else "tab:orange"
 PLUS_C = _PALETTE[3] if _PALETTE else "tab:red"
 MINUS_C = _PALETTE[0] if _PALETTE else "tab:blue"
+
+# P-boxes drawn by ``fig_ecdfs_vs_paper``; also used by the CLI.
+PBOX_NAMES = ("split_d+", "split_d-", "pooled", "experimental")
+# Simulation p-boxes selectable in ``fig_dextremes_simcdfs``.  "pooled" is
+# the paper's original simulation p-box; the split entries are the E_n blocks
+# that maximise d+ and d-.
+DEXTREME_NAMES = ("split_d+", "split_d-", "pooled")
 
 
 def _style_axis(ax):
@@ -636,6 +655,505 @@ def fig_ecdfs(data, summary, res_dir: Path, sensors):
     return out
 
 
+def fig_ecdfs_vs_paper(data, summary, res_dir: Path, sensors: list, selected: list = None, plot_name: str = None):
+    """Compare the split maximising block with the paper's p-boxes.
+
+    For each requested sensor this draws the selected p-box envelopes as
+    min/max empirical-CDF bounds:
+
+    * the E_n block that maximises the split-metric ``d+``,
+    * the E_n block that maximises the split-metric ``d-``,
+    * the original paper's full simulation p-box, and
+    * the original paper's experimental p-box.
+
+    All four are drawn by default; pass ``selected`` to draw a subset.
+
+    The paper simulation p-box is rebuilt from the full
+    ``SamplingResultsOnlyPointSensors.csv`` sample matrix using the paper's
+    quantile-sum bound-selection rule.  The experimental p-box is the
+    nominal experiment CDF expanded by the paper's epistemic sensor errors.
+
+    Parameters
+    ----------
+    data : dict[str, numpy.ndarray]
+        Per sensor, simulated outputs of shape=(n_en_total, n_et, n_a).
+    summary : pandas.DataFrame
+        Summary frame from :func:`load_results`; supplies the E_n block that
+        maximises d+ for each sensor.
+    res_dir : pathlib.Path
+        Results directory; the figure is written to ``res_dir / "plots"``.
+    sensors : list[str]
+        Sensor tags to plot, one panel each, e.g. ``["TC2", "TC3"]``.
+    selected : list[str], optional
+        Names of p-boxes to plot. If None, plot all. Valid names are
+        ``"split_d+"`` (the E_n block maximising d+), ``"split_d-"`` (the
+        E_n block maximising d-), ``"pooled"`` (the paper's pooled p-box)
+        and ``"experimental"``.
+
+    Returns
+    -------
+    pathlib.Path
+        Path of the saved ``06_ecdfs_vs_paper.png``.
+    """
+    if selected is None:
+        selected = list(PBOX_NAMES)
+    else:
+        selected = list(dict.fromkeys(selected))
+    unknown = [name for name in selected if name not in PBOX_NAMES]
+    if unknown:
+        raise ValueError(
+            f"Unknown p-box name(s) {unknown}; valid names are "
+            f"{list(PBOX_NAMES)}."
+        )
+    if not selected:
+        raise ValueError("selected must contain at least one p-box name.")
+
+    paper_sim_csv = (
+        SCRIPT_DIR.parent
+        / "STC_ProbSim_FieldsFull_25X_v4"
+        / "SamplingResultsOnlyPointSensors.csv"
+    )
+    paper_epis_n = 250
+    paper_alea_n = 400
+    paper = pd.read_csv(
+        paper_sim_csv,
+        usecols=[mns.SIM_COL[kk] for kk in sensors],
+    )
+    exp_bounds, _ = mns.load_experiment()
+
+    def draw_pbox(ax, bounds, color, label, linestyle="-", linewidth=1.7):
+        """Draw min/max CDF bounds and their shaded envelope."""
+        lo = np.asarray(bounds["min"], dtype=float)
+        hi = np.asarray(bounds["max"], dtype=float)
+        q_lo, p_lo = _ecdf_xy(lo[np.isfinite(lo)])
+        q_hi, p_hi = _ecdf_xy(hi[np.isfinite(hi)])
+        ax.plot(q_lo, p_lo, color=color, lw=linewidth, ls=linestyle,
+                label=label)
+        ax.plot(q_hi, p_hi, color=color, lw=linewidth, ls=linestyle)
+        if len(p_lo) == len(p_hi) and np.allclose(p_lo, p_hi):
+            ax.fill_betweenx(p_lo, q_lo, q_hi, color=color, alpha=0.13,
+                             linewidth=0)
+    
+    fig, axs = plt.subplots(
+        1,
+        len(sensors),
+        figsize=(6.2 * len(sensors), 5),
+        layout="constrained",
+    )
+    axs = np.atleast_1d(axs)
+    
+    for ax, kk in zip(axs, sensors):
+        paper_values = paper[mns.SIM_COL[kk]].to_numpy(dtype=float)
+        expected_size = paper_epis_n * paper_alea_n
+        if paper_values.size != expected_size:
+            raise ValueError(
+                f"{kk}: paper simulation has {paper_values.size} rows, "
+                f"expected {expected_size} "
+                f"({paper_epis_n} epistemic x {paper_alea_n} aleatory)"
+            )
+        paper_block = paper_values.reshape(paper_epis_n, paper_alea_n)
+    
+        row = summary[summary["sensor"] == kk].iloc[0]
+        en_star_plus = int(row["split_d+_en"])
+        en_star_minus = int(row["split_d-_en"])
+        split_bounds_plus = mns.sim_bounds(data[kk][en_star_plus])
+        split_bounds_minus = mns.sim_bounds(data[kk][en_star_minus])
+        paper_bounds = mns.sim_bounds(paper_block)
+        exp = exp_bounds[kk]
+    
+        # Calculate MAVM d+/d- for each p-box
+        convention = mns.CONVENTIONS.get(
+            row.get("convention", "model_form"),
+            mns.model_form_bounds,
+        )
+        split_mavm_plus = convention(split_bounds_plus, exp)
+        split_mavm_minus = convention(split_bounds_minus, exp)
+        paper_mavm = convention(paper_bounds, exp)
+    
+        pboxes = {
+            "split_d+": (
+                split_bounds_plus,
+                SIM_C,
+                rf"Split p-box - $E_n$ block {en_star_plus} ($\max d^+$): "
+                rf"$d^+={split_mavm_plus['d+']:.3g}$, ",
+                "-",
+            ),
+            "split_d-": (
+                split_bounds_minus,
+                #SIM_C2,
+                SIM_C,
+                rf"Split p-box - $E_n$ block {en_star_minus} ($\max d^-$): "
+                rf"$d^-={split_mavm_minus['d-']:.3g}$",
+                "-",
+            ),
+            "pooled": (
+                paper_bounds,
+                #"black",
+                SIM_C,
+                rf"Pooled p-box (Test Case 1 paper): "
+                rf"$d^+={paper_mavm['d+']:.3g}$, "
+                rf"$d^-={paper_mavm['d-']:.3g}$",
+                "--",
+            ),
+            "experimental": (
+                exp,
+                EXP_C,
+                "Experimental p-box",
+                ":",
+            ),
+        }
+        for name in selected:
+            bounds, color, label, linestyle = pboxes[name]
+            draw_pbox(
+                ax,
+                bounds,
+                color,
+                label,
+                linestyle=linestyle,
+            )
+    
+        ax.set_title(f"{kk}", fontsize=10)
+        xlabel = (
+            "Coil voltage [V]"
+            if kk == "CV"
+            else f"Temperature {unit_label(kk, latex=True)}"
+        )
+        ax.set_xlabel(xlabel, fontsize=10)
+        ax.set_ylabel("Probability", fontsize=10)
+        ax.tick_params(labelsize=10)
+        ax.margins(x=0.02)
+        _style_axis(ax)
+
+        # ax.legend(fontsize=8, loc="outside lower center", framealpha=0.9)
+
+        ax.legend(
+            fontsize=10,
+            loc="upper left",
+            bbox_to_anchor=(0.2, -0.20),
+            borderaxespad=0,
+            framealpha=0.9,
+        )
+    
+    # handles, labels = axs[0].get_legend_handles_labels()
+    # fig.legend(handles, labels, fontsize=9, ncol=2,
+    #            loc="outside lower center")
+    title_names = {
+        "split_d+": r"split $d^+$ block",
+        "split_d-": r"split $d^-$ block",
+        "pooled": "pooled (Test Case 1 paper)",
+        "experimental": "experimental",
+    }
+    if selected == list(PBOX_NAMES):
+        title = (
+            "Split maximising block vs pooled (Test Case 1 paper) vs "
+            "experimental p-boxes"
+        )
+    else:
+        title = " vs ".join(title_names[name] for name in selected) + " p-boxes"
+    fig.suptitle(title, fontsize=11)
+
+    if plot_name == None:
+        out = res_dir / "plots" / "06_ecdfs_vs_paper.png"
+    else:
+        out = res_dir / "plots" / plot_name
+    fig.savefig(out, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    return out
+
+
+def fig_dextremes_simcdfs(data, summary, res_dir: Path, sensors: list,
+                          selected: list = None, plot_name: str = None):
+    """Plot simulation limits with the MAVM d+/d- CDF shifts.
+
+    This is the split analogue of the paper pipeline's
+    ``*_dextremes_simcdfsonly_*.png`` figures.  For each sensor, simulation
+    p-boxes are drawn as min/max empirical-CDF envelopes, together with the
+    shifted CDFs implied by the metric.  If only one split p-box is selected,
+    both of its ``d+``/``d-`` shifts are drawn so the metric band remains
+    visible.  The experimental p-box is used to compute ``d+/d-`` but is not
+    drawn.
+
+    Parameters
+    ----------
+    data : dict[str, numpy.ndarray]
+        Per sensor, simulated outputs of shape=(n_en_total, n_et, n_a).
+    summary : pandas.DataFrame
+        Summary frame from :func:`load_results`; supplies the E_n blocks that
+        maximise d+ and d- for each sensor.
+    res_dir : pathlib.Path
+        Results directory; the figure is written to ``res_dir / "plots"``.
+    sensors : list[str]
+        Sensor tags to plot, one panel each, e.g. ``["TC2", "TC3"]``.
+    selected : list[str], optional
+        Names of simulation p-boxes to plot. If None, plot all. Valid names
+        are ``"split_d+"`` (the E_n block maximising d+), ``"split_d-"``
+        (the E_n block maximising d-) and ``"pooled"`` (the paper's original
+        full simulation p-box).
+    plot_name : str, optional
+        Output filename.  Defaults to ``10_dextremes_simcdfs.png``.
+
+    Returns
+    -------
+    pathlib.Path
+        Path of the saved figure.
+    """
+    if selected is None:
+        selected = list(DEXTREME_NAMES)
+    else:
+        selected = list(dict.fromkeys(selected))
+    unknown = [name for name in selected if name not in DEXTREME_NAMES]
+    if unknown:
+        raise ValueError(
+            f"Unknown simulation p-box name(s) {unknown}; valid names are "
+            f"{list(DEXTREME_NAMES)}."
+        )
+    if not selected:
+        raise ValueError("selected must contain at least one p-box name.")
+
+    exp_bounds, _ = mns.load_experiment()
+
+    pooled_bounds = {}
+    if "pooled" in selected:
+        paper_sim_csv = (
+            SCRIPT_DIR.parent
+            / "STC_ProbSim_FieldsFull_25X_v4"
+            / "SamplingResultsOnlyPointSensors.csv"
+        )
+        paper_epis_n = 250
+        paper_alea_n = 400
+        paper = pd.read_csv(
+            paper_sim_csv,
+            usecols=[mns.SIM_COL[kk] for kk in sensors],
+        )
+        for kk in sensors:
+            paper_values = paper[mns.SIM_COL[kk]].to_numpy(dtype=float)
+            expected_size = paper_epis_n * paper_alea_n
+            if paper_values.size != expected_size:
+                raise ValueError(
+                    f"{kk}: paper simulation has {paper_values.size} rows, "
+                    f"expected {expected_size} "
+                    f"({paper_epis_n} epistemic x {paper_alea_n} aleatory)"
+                )
+            pooled_bounds[kk] = mns.sim_bounds(
+                paper_values.reshape(paper_epis_n, paper_alea_n)
+            )
+
+    def draw_pbox(ax, bounds, color, label, linestyle="-", linewidth=1.7):
+        """Draw min/max CDF bounds and their shaded envelope."""
+        lo = np.asarray(bounds["min"], dtype=float)
+        hi = np.asarray(bounds["max"], dtype=float)
+        q_lo, p_lo = _ecdf_xy(lo[np.isfinite(lo)])
+        q_hi, p_hi = _ecdf_xy(hi[np.isfinite(hi)])
+        ax.plot(q_lo, p_lo, color=color, lw=linewidth, ls=linestyle,
+                label=label)
+        ax.plot(q_hi, p_hi, color=color, lw=linewidth, ls=linestyle)
+        if len(p_lo) == len(p_hi) and np.allclose(p_lo, p_hi):
+            ax.fill_betweenx(p_lo, q_lo, q_hi, color=color, alpha=0.2,
+                             linewidth=0)
+
+    def winning_shift(bounds, exp, stat_key):
+        """Recompute vm.mavm for a convention's winning sim/exp pair."""
+        sim_key, exp_key = (part.split("-")[1]
+                            for part in stat_key.split("_"))
+        return vm.mavm(bounds[sim_key], exp[exp_key])
+
+    fig, axs = plt.subplots(
+        1,
+        len(sensors),
+        figsize=(6.2 * len(sensors), 5),
+        layout="constrained",
+    )
+    axs = np.atleast_1d(axs)
+
+    for ax, kk in zip(axs, sensors):
+        row = summary[summary["sensor"] == kk].iloc[0]
+        exp = exp_bounds[kk]
+
+        convention = mns.CONVENTIONS.get(
+            row.get("convention", "model_form"),
+            mns.model_form_bounds,
+        )
+
+        split_plus_shift = None
+        split_minus_shift = None
+        if "split_d+" in selected:
+            en_star_plus = int(row["split_d+_en"])
+            bounds_plus = mns.sim_bounds(data[kk][en_star_plus])
+            plus = convention(bounds_plus, exp)
+            draw_pbox(
+                ax,
+                bounds_plus,
+                SIM_C,
+                rf"Simulation limits - $E_n$ block {en_star_plus} "
+                rf"($\max d^+$)",
+            )
+            if plus["d+_stat"] is not None:
+                split_plus_shift = winning_shift(
+                    bounds_plus, exp, plus["d+_stat"]
+                )
+                ax.plot(
+                    split_plus_shift["F_"] + split_plus_shift["d+"],
+                    split_plus_shift["F_Y"],
+                    ls=":",
+                    lw=2.0,
+                    color="black",
+                    label=rf"$d^+={split_plus_shift['d+']:.3g}$",
+                )
+            # With only this split p-box selected, draw its own d- as well
+            # so the d+/d- band is still visible.
+            if ("split_d-" not in selected
+                    and plus["d-_stat"] is not None):
+                split_minus_shift = winning_shift(
+                    bounds_plus, exp, plus["d-_stat"]
+                )
+                ax.plot(
+                    split_minus_shift["F_"] - split_minus_shift["d-"],
+                    split_minus_shift["F_Y"],
+                    ls="--",
+                    lw=2.0,
+                    color="black",
+                    label=rf"$d^-={split_minus_shift['d-']:.3g}$",
+                )
+
+        if "split_d-" in selected:
+            en_star_minus = int(row["split_d-_en"])
+            bounds_minus = mns.sim_bounds(data[kk][en_star_minus])
+            minus = convention(bounds_minus, exp)
+            draw_pbox(
+                ax,
+                bounds_minus,
+                SIM_C,
+                rf"Simulation limits - $E_n$ block {en_star_minus} "
+                rf"($\max d^-$)",
+            )
+            if minus["d-_stat"] is not None:
+                split_minus_shift = winning_shift(
+                    bounds_minus, exp, minus["d-_stat"]
+                )
+                ax.plot(
+                    split_minus_shift["F_"] - split_minus_shift["d-"],
+                    split_minus_shift["F_Y"],
+                    ls="--",
+                    lw=2.0,
+                    color="black",
+                    label=rf"$d^-={split_minus_shift['d-']:.3g}$",
+                )
+            # With only this split p-box selected, draw its own d+ as well
+            # so the d+/d- band is still visible.
+            if ("split_d+" not in selected
+                    and minus["d+_stat"] is not None):
+                split_plus_shift = winning_shift(
+                    bounds_minus, exp, minus["d+_stat"]
+                )
+                ax.plot(
+                    split_plus_shift["F_"] + split_plus_shift["d+"],
+                    split_plus_shift["F_Y"],
+                    ls=":",
+                    lw=2.0,
+                    color="black",
+                    label=rf"$d^+={split_plus_shift['d+']:.3g}$",
+                )
+
+        if split_plus_shift is not None and split_minus_shift is not None:
+            ax.fill_betweenx(
+                split_plus_shift["F_Y"],
+                split_minus_shift["F_"] - split_minus_shift["d-"],
+                split_plus_shift["F_"] + split_plus_shift["d+"],
+                color="black",
+                alpha=0.1,
+                ls=":",
+            )
+
+        if "pooled" in selected:
+            bounds_pooled = pooled_bounds[kk]
+            pooled = convention(bounds_pooled, exp)
+            draw_pbox(
+                ax,
+                bounds_pooled,
+                SIM_C,
+                "Pooled p-box (Test Case 1 paper)",
+                linestyle="--",
+            )
+
+            pooled_plus_shift = None
+            pooled_minus_shift = None
+            if pooled["d+_stat"] is not None:
+                pooled_plus_shift = winning_shift(
+                    bounds_pooled, exp, pooled["d+_stat"]
+                )
+                ax.plot(
+                    pooled_plus_shift["F_"] + pooled_plus_shift["d+"],
+                    pooled_plus_shift["F_Y"],
+                    ls=":",
+                    lw=2.0,
+                    color="black",
+                    label=rf"pooled $d^+={pooled_plus_shift['d+']:.3g}$",
+                )
+            if pooled["d-_stat"] is not None:
+                pooled_minus_shift = winning_shift(
+                    bounds_pooled, exp, pooled["d-_stat"]
+                )
+                ax.plot(
+                    pooled_minus_shift["F_"] - pooled_minus_shift["d-"],
+                    pooled_minus_shift["F_Y"],
+                    ls="--",
+                    lw=2.0,
+                    color="black",
+                    label=rf"pooled $d^-={pooled_minus_shift['d-']:.3g}$",
+                )
+            if (pooled_plus_shift is not None
+                    and pooled_minus_shift is not None):
+                ax.fill_betweenx(
+                    pooled_plus_shift["F_Y"],
+                    pooled_minus_shift["F_"] - pooled_minus_shift["d-"],
+                    pooled_plus_shift["F_"] + pooled_plus_shift["d+"],
+                    color="black",
+                    alpha=0.1,
+                    ls=":",
+                )
+
+        ax.set_title(f"{kk}", fontsize=10)
+        xlabel = (
+            "Coil voltage [V]"
+            if kk == "CV"
+            else f"Temperature {unit_label(kk, latex=True)}"
+        )
+        ax.set_xlabel(xlabel, fontsize=10)
+        ax.set_ylabel("Probability", fontsize=10)
+        ax.tick_params(labelsize=10)
+        ax.margins(x=0.02)
+        _style_axis(ax)
+        ax.legend(
+            fontsize=10,
+            loc="upper left",
+            bbox_to_anchor=(0.2, -0.20),
+            borderaxespad=0,
+            framealpha=0.9,
+        )
+
+    title_names = {
+        "split_d+": r"split $d^+$ block",
+        "split_d-": r"split $d^-$ block",
+        "pooled": "pooled (Test Case 1 paper)",
+    }
+    if selected == list(DEXTREME_NAMES):
+        title = r"Split and pooled simulation limits with $d^+$/$d^-$ shifts"
+    elif selected == ["pooled"]:
+        title = ("Pooled simulation limits with $d^+$/$d^-$ shifts "
+                 "(Test Case 1 paper)")
+    else:
+        title = (" vs ".join(title_names[name] for name in selected)
+                 + r" simulation limits with $d^+$/$d^-$ shifts")
+    fig.suptitle(title, fontsize=11)
+    if plot_name is None:
+        out = res_dir / "plots" / "10_dextremes_simcdfs.png"
+    else:
+        out = res_dir / "plots" / plot_name
+    fig.savefig(out, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    return out
+
+
 def fig_distributions(data, summary, res_dir: Path, sensors):
     """Plot per-box aleatory spreads against the experiment band.
 
@@ -709,8 +1227,11 @@ def fig_distributions(data, summary, res_dir: Path, sensors):
     return out
 
 
+
+
+
 def main():
-    """Generate all five figures for the results directory given on the CLI.
+    """Generate all figures for the results directory given on the CLI.
 
     Returns
     -------
@@ -723,6 +1244,13 @@ def main():
                     default=SCRIPT_DIR / "mavm_nuisance_split" / "nen9_net16_na100")
     ap.add_argument("--sensors", nargs="+", default=["TC2", "TC3"],
                     help="sensors for the CDF/distribution figures")
+    ap.add_argument("--selected", nargs="+", default=None, choices=PBOX_NAMES,
+                    help="p-boxes to draw in 06_ecdfs_vs_paper "
+                         "(default: all)")
+    ap.add_argument("--dextremes-selected", nargs="+", default=None,
+                    choices=DEXTREME_NAMES,
+                    help="simulation p-boxes to draw in 10_dextremes_simcdfs "
+                         "(default: all)")
     ap.add_argument("--convention", choices=("model_form", "reference"),
                     default="model_form",
                     help="which convention to read from the results "
@@ -743,6 +1271,37 @@ def main():
         fig_vs_current(profile, summary, res_dir),
         fig_split_vs_paper(summary, res_dir),
         fig_ecdfs(data, summary, res_dir, args.sensors),
+        fig_ecdfs_vs_paper(data, summary, res_dir, args.sensors, args.selected),
+        
+        # For the presentation
+        fig_ecdfs_vs_paper(data, summary, res_dir, sensors = ["TC2"], 
+                           selected=["pooled", "experimental"], 
+                           plot_name="07_ecdfs_vs_paper.png"),
+        fig_ecdfs_vs_paper(data, summary, res_dir, sensors = ["TC2"], 
+                           selected=["split_d+", "experimental"], 
+                           plot_name="08_ecdfs_vs_paper.png"),
+        fig_ecdfs_vs_paper(data, summary, res_dir, sensors = ["TC2"], 
+                           selected=["split_d-", "experimental"], 
+                           plot_name="09_ecdfs_vs_paper.png"),
+
+        fig_dextremes_simcdfs(data, summary, res_dir, args.sensors,
+                             args.dextremes_selected),
+
+        # For the presentation
+        fig_dextremes_simcdfs(data, summary, res_dir, sensors = ["TC2"],
+                             selected=["pooled"],
+                             plot_name="11_dextremes_simcdfs.png"),
+        fig_dextremes_simcdfs(data, summary, res_dir, sensors = ["TC2"],
+                             selected=["split_d+"],
+                             plot_name="12_dextremes_simcdfs.png"),
+        fig_dextremes_simcdfs(data, summary, res_dir, sensors = ["TC2"],
+                             selected=["split_d-"],
+                             plot_name="13_dextremes_simcdfs.png"),
+        fig_dextremes_simcdfs(data, summary, res_dir, sensors = ["TC2"],
+                             selected=["split_d-", "split_d+"],
+                             plot_name="14_dextremes_simcdfs.png"),
+
+
         fig_distributions(data, summary, res_dir, args.sensors),
     ]
     for o in outs:

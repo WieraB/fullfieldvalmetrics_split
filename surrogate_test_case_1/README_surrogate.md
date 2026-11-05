@@ -102,17 +102,14 @@ point of your study.**
 ## Verification tests
 
 ```bash
-python3 -m pytest tests/ -q          # 38 tests, ~40 s (Wine required)
+python3 -m pytest tests/ -q
 python3 tests/accuracy_report.py     # per-output MAE/RMSE/R2 tables
 ```
 
 `tests/` checks the whole stack against the vendor's reference FEA in
 `train-valid-data/`: data integrity, FMU XML ↔ CSV agreement, pipe
-behaviour (determinism, batching, instance reuse), **exact interpolation
-of all 209 training points** (observed error 5e-8 = CSV precision), bounded
-error on the 24 validation points (R² ≥ 0.964), physical invariants and
-sensitivity-direction agreement. See `tests/README.md` for the tolerance
-rationale and how to interpret a failure.
+behaviour (determinism, batching, instance reuse), exact interpolation
+of all 209 training points (observed error 5e-8 = CSV precision).
 
 ## Vendor quirks worth knowing
 
@@ -133,8 +130,8 @@ These are deviations from the FMI 3.0 spec that the driver works around:
 
 ## To remember
 
-* **Stay inside the surrogate's design space.** The bounds *inside* the FMU
-  are encrypted, but `train-valid-data/TrainingDOE.csv` gives them (and the
+* **Stay inside the surrogate's design space.** The bounds inside the FMU
+  are encrypted, but `train-valid-data/TrainingDOE.csv` provides them (and the
   test suite pins them in `tests/metrics.py`):
 
   | input | training range |
@@ -149,4 +146,4 @@ These are deviations from the FMI 3.0 spec that the driver works around:
   A Kriging model extrapolates smoothly-but-wrongly outside that box (the
   "temperature falls as current rises" artefact seen at 150 A / 50 kHz is
   exactly that).
-* **The clean fix is a re-export.** Ask SmartUQ to include `binaries/x86_64-linux/fmi3.so` in the FMU export. Nothing in this folder has to change: `surrogate_fmu.py` detects a native Linux binary and uses fmpy instead of Wine.
+* **The clean fix is a re-export.** Include `binaries/x86_64-linux/fmi3.so` in the FMU export. Nothing in this folder has to change: `surrogate_fmu.py` detects a native Linux binary and uses fmpy instead of Wine.

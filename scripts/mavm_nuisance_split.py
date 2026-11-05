@@ -33,7 +33,10 @@ The pipeline is as follows:
     min/max bound selection by quantile-sum, ``vm.mavm``
     over sim{min,max} x exp{min,max}) is evaluated **per E_n block**, then
     the final metric is ``max over E_n of d+ / d-``.
-4.  The reported metric uses the paper's own model-form convention
+    d+ is the nuisance configuration that produces the largest positive deviation.
+    d- is the nuisance configuration that produces the largest negative deviation (it can be a different block).
+    The selected block indices are saved in ``mavm_summary.csv`` as split_d+_en and split_d-_en, respectively.
+4.  The reported metric uses the paper's model-form convention
     (``model_form_bounds``): d+ against the sim-max bound row and
     d- against the sim-min bound row only, which is the quantity the paper
     publishes as ``model_form_plus``/``model_form_minus``.
